@@ -17,6 +17,7 @@ public class App {
     private JLabel labelTimer;
     private JPanel panelButtons;
     private long focusMinutes;
+    private static final JFrame frame = new JFrame("App");
 
     enum State {
         BOOTED,
@@ -119,6 +120,7 @@ public class App {
         setEnableButtonStop(false);
         setTimerStopped(false);
         setLabelTimer("00:00");
+        flashWindow();
 
         JOptionPane.showMessageDialog(null, Locale.FOCUS_DONE_MESSAGE_ALERT);
     }
@@ -138,9 +140,16 @@ public class App {
         setEnableButtonStop(false);
         setTimerStopped(false);
         setLabelTimer("00:00");
+        flashWindow();
 
         JOptionPane.showMessageDialog(null, Locale.BREAK_DONE_MESSAGE_ALERT);
+    }
 
+    private static void flashWindow() {
+        frame.setAlwaysOnTop(true);
+        frame.toFront();
+        frame.requestFocus();
+        frame.setAlwaysOnTop(false);
     }
 
     public App() {
@@ -198,9 +207,8 @@ public class App {
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("App");
-
         // Init settings
+        frame.toFront();
         frame.setContentPane(new App().panelMain);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
