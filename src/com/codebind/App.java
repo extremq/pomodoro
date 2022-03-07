@@ -149,6 +149,7 @@ public class App {
         // Pick whether we choose to subtract from session or break time.
         long sessionMinutes = 0;
         if (getState() == State.BOOTED || getState() == State.FOCUS) {
+            setState(State.FOCUS);
             sessionMinutes = getFocusMinutes();
         }
         else if (getState() == State.BREAK) {
@@ -164,7 +165,10 @@ public class App {
                 // If the timer is below zero, or it has been stopped, cancel the updates.
                 if (systemTime - startTime > finalSessionMinutes * 60 * 1000 || isTimerStopped()) {
                     this.cancel();
-                    if (getState() == State.BOOTED || getState() == State.FOCUS) {
+                    if (getState() == State.BOOTED) {
+                        resetTimerAndMessage(Locale.GREET_MESSAGE);
+                    }
+                    else if (getState() == State.FOCUS) {
                         endFocusPeriod();
                     }
                     else if (getState() == State.BREAK) {
@@ -173,7 +177,7 @@ public class App {
                 }
                 // Update the timer with the new remaining time.
                 else {
-                    setLabelTimer(Utils.convertRemainingMillisToMinutes(systemTime - startTime, getFocusMinutes()));
+                    setLabelTimer(Utils.convertRemainingMillisToMinutes(systemTime - startTime, finalSessionMinutes));
                 }
             }
         }, 0, 100);
@@ -212,18 +216,28 @@ public class App {
 
         helpMenu.add(aboutItem);
         helpMenu.add(usageItem);
+
+        JMenuItem resetItem = new JMenuItem("Reset");
+        JMenu settingsMenu = new JMenu("Settings");
+
+        resetItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setState(State.BOOTED);
+                setTimerStopped(true);
+
+                JOptionPane.showMessageDialog(null, Locale.RESET_MESSAGE);
+            }
+        });
+
+        settingsMenu.add(resetItem);
+
+        menubar.add(settingsMenu);
         menubar.add(helpMenu);
         frame.setJMenuBar(menubar);
     }
 
-    public App() {
-        this.frame = new JFrame();
-        initFrame(this.frame);
-
-        this.menubar = new JMenuBar();
-        initMenuBar(this.menubar, this.frame);
-
-        // Start button logic
+    private void initButtons(JButton buttonStart, JButton buttonStop) {
         buttonStart.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -252,6 +266,17 @@ public class App {
                 setTimerStopped(true);
             }
         });
+    }
+
+    public App() {
+        this.frame = new JFrame();
+        initFrame(this.frame);
+
+        this.menubar = new JMenuBar();
+        initMenuBar(this.menubar, this.frame);
+
+        // Start button logic
+        initButtons(this.buttonStart, this.buttonStop);
     }
 
     public static void main(String[] args) {

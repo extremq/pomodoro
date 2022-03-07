@@ -10,6 +10,7 @@ public class Locale {
     public static final String FOCUS_DONE_MESSAGE = "Let's take a break.";
     public static final String BREAK_DONE_MESSAGE = "Let's focus.";
     public static final String GREET_MESSAGE = "Nice to see you!";
+    public static final String RESET_MESSAGE = "The app has been reset!";
     public static final String ABOUT_MESSAGE = "This application was made by Extremq as an exercise and as a necessity." +
             "\n\n" + "The source code is available at https://github.com/extremq/pomodoro" +
             "\n" + "and is available freely to anyone." +
