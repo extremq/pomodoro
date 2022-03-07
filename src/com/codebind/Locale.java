@@ -5,6 +5,9 @@ public class Locale {
     public static final String BREAK_MESSAGE = "Take a break!";
     public static final String TIME_QUESTION_MESSAGE = "How much time do you want to focus (in minutes, 1-60)?" +
             "\n" + "The default is 30 minutes.";
-    public static final String FOCUS_DONE_MESSAGE = "Time is up! Take a break.";
+    public static final String FOCUS_DONE_MESSAGE_ALERT = "Time is up! Take a break.";
+    public static final String BREAK_DONE_MESSAGE_ALERT = "Time is up! Let's focus!";
+    public static final String FOCUS_DONE_MESSAGE = "Let's take a break.";
+    public static final String BREAK_DONE_MESSAGE = "Let's focus.";
     public static final String GREET_MESSAGE = "Nice to see you!";
 }

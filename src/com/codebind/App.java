@@ -3,6 +3,9 @@ package com.codebind;
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -13,18 +16,40 @@ public class App {
     private JLabel labelMsg;
     private JLabel labelTimer;
     private JPanel panelButtons;
-    private long minutes;
-    private boolean focusStopped = false;
+    private long focusMinutes;
 
-    public void setFocusStopped(boolean focusStopped) {
-        this.focusStopped = focusStopped;
-    }
-    public long getMinutes() {
-        return minutes;
+    enum State {
+        BOOTED,
+        FOCUS,
+        BREAK
     }
 
-    public void setMinutes(long minutes) {
-        this.minutes = minutes;
+    private State state = State.BOOTED;
+    private boolean timerStopped = false;
+
+    // SETTERS & GETTERS
+    public State getState() {
+        return state;
+    }
+
+    public void setState(State state) {
+        this.state = state;
+    }
+
+    public void setTimerStopped(boolean timerStopped) {
+        this.timerStopped = timerStopped;
+    }
+
+    public long getFocusMinutes() {
+        return focusMinutes;
+    }
+
+    public void setFocusMinutes(long focusMinutes) {
+        this.focusMinutes = focusMinutes;
+    }
+
+    public long getBreakMinutes() {
+        return 5;
     }
 
     public void setLabelMsg(String message) {
@@ -35,8 +60,22 @@ public class App {
         this.labelTimer.setText(timeRemaining);
     }
 
-    public String convertMillisToMinutes(long millis) {
-        long selectedLength = getMinutes() * 60 * 1000;
+    public void setEnableButtonStart(boolean enabled) {
+        this.buttonStart.setEnabled(enabled);
+    }
+
+    public void setEnableButtonStop(boolean enabled) {
+        this.buttonStop.setEnabled(enabled);
+    }
+
+    public boolean isTimerStopped() {
+        return this.timerStopped;
+    }
+    // END SETTERS AND GETTERS
+
+    // Transform the remaining time to a human-readable format.
+    public String convertMillisToMinutes(long millis, long periodOfTime) {
+        long selectedLength = periodOfTime * 60 * 1000;
         long remainingTime = selectedLength - millis;
         long millisToSeconds = (remainingTime / 1000) % 60;
         long millisToMinutes = remainingTime / (1000 * 60);
@@ -48,74 +87,112 @@ public class App {
         return String.format("%02d", millisToMinutes) + ":" + String.format("%02d", millisToSeconds);
     }
 
-    public void setEnableButtonStart(boolean enabled) {
-        this.buttonStart.setEnabled(enabled);
+    private void startFocusPeriod() {
+        setLabelMsg(Locale.FOCUS_MESSAGE);
+        setEnableButtonStop(true);
+        setEnableButtonStart(false);
+        setTimerStopped(false);
     }
 
-    public void setEnableButtonStop(boolean enabled) {
-        this.buttonStop.setEnabled(enabled);
+    // Creates a dialogue that asks the user for the focus period.
+    private void requestFocusTime() {
+        String m = JOptionPane.showInputDialog(Locale.TIME_QUESTION_MESSAGE);
+
+        int convertedMinutes;
+        try {
+            convertedMinutes = Integer.parseInt(m);
+        } catch (Exception exception) {
+            convertedMinutes = 30;
+        }
+
+        if (convertedMinutes < 1 || convertedMinutes > 60) {
+            convertedMinutes = 30;
+        }
+        setFocusMinutes(convertedMinutes);
     }
 
-    public boolean isFocusStopped() {
-        return this.focusStopped;
-    }
+    private void endFocusPeriod() {
+        setState(State.BREAK);
 
-    public void endFocusPeriod() {
-        setLabelMsg(Locale.GREET_MESSAGE);
+        setLabelMsg(Locale.FOCUS_DONE_MESSAGE);
         setEnableButtonStart(true);
         setEnableButtonStop(false);
-        setFocusStopped(false);
+        setTimerStopped(false);
         setLabelTimer("00:00");
 
-        JOptionPane.showMessageDialog(null, Locale.FOCUS_DONE_MESSAGE);
+        JOptionPane.showMessageDialog(null, Locale.FOCUS_DONE_MESSAGE_ALERT);
+    }
+
+    private void startBreakPeriod() {
+        setLabelMsg(Locale.BREAK_MESSAGE);
+        setEnableButtonStop(true);
+        setEnableButtonStart(false);
+        setTimerStopped(false);
+    }
+
+    private void endBreakPeriod() {
+        setState(State.FOCUS);
+
+        setLabelMsg(Locale.BREAK_DONE_MESSAGE);
+        setEnableButtonStart(true);
+        setEnableButtonStop(false);
+        setTimerStopped(false);
+        setLabelTimer("00:00");
+
+        JOptionPane.showMessageDialog(null, Locale.BREAK_DONE_MESSAGE_ALERT);
+
     }
 
     public App() {
+        // Start button logic
         buttonStart.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String m = JOptionPane.showInputDialog(Locale.TIME_QUESTION_MESSAGE);
+                if (getState() == State.FOCUS || getState() == State.BOOTED) {
+                    // Only request the focus time the first time.
+                    if (getState() == State.BOOTED)
+                        requestFocusTime();
+                    startFocusPeriod();
 
-                int convertedMinutes;
-                try {
-                    convertedMinutes = Integer.parseInt(m);
-                }
-                catch (Exception exception) {
-                    convertedMinutes = 30;
-                }
-
-                if (convertedMinutes < 1 || convertedMinutes > 60) {
-                    convertedMinutes = 30;
-                }
-                setMinutes(convertedMinutes);
-
-                setLabelMsg(Locale.FOCUS_MESSAGE);
-                setEnableButtonStop(true);
-                setEnableButtonStart(false);
-                setFocusStopped(false);
-
-                long startTime = System.currentTimeMillis();
-                Timer timer = new Timer();
-                timer.scheduleAtFixedRate(new TimerTask() {
-                    @Override
-                    public void run() {
-                        long systemTime = System.currentTimeMillis();
-                        if (systemTime - startTime > getMinutes() * 60 * 1000 || isFocusStopped()) {
-                            this.cancel();
-                            endFocusPeriod();
+                    long startTime = System.currentTimeMillis();
+                    Timer timer = new Timer();
+                    timer.scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            long systemTime = System.currentTimeMillis();
+                            if (systemTime - startTime > getFocusMinutes() * 60 * 1000 || isTimerStopped()) {
+                                this.cancel();
+                                endFocusPeriod();
+                            } else {
+                                setLabelTimer(convertMillisToMinutes(systemTime - startTime, getFocusMinutes()));
+                            }
                         }
-                        else {
-                            setLabelTimer(convertMillisToMinutes(systemTime - startTime));
-                        }
-                    }
-                }, 0, 500);
+                    }, 0, 100);
+                }
+                else if (getState() == State.BREAK) {
+                    startBreakPeriod();
 
+                    long startTime = System.currentTimeMillis();
+                    Timer timer = new Timer();
+                    timer.scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            long systemTime = System.currentTimeMillis();
+                            if (systemTime - startTime > getBreakMinutes() * 60 * 1000 || isTimerStopped()) {
+                                this.cancel();
+                                endBreakPeriod();
+                            } else {
+                                setLabelTimer(convertMillisToMinutes(systemTime - startTime, getBreakMinutes()));
+                            }
+                        }
+                    }, 0, 100);
+                }
             }
         });
         buttonStop.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                setFocusStopped(true);
+                setTimerStopped(true);
             }
         });
     }
@@ -123,6 +200,7 @@ public class App {
     public static void main(String[] args) {
         JFrame frame = new JFrame("App");
 
+        // Init settings
         frame.setContentPane(new App().panelMain);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
