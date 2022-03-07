@@ -3,6 +3,8 @@ package com.codebind;
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import javax.sound.sampled.*;
+import java.net.URL;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -120,7 +122,9 @@ public class App {
         setEnableButtonStop(false);
         setTimerStopped(false);
         setLabelTimer("00:00");
+
         flashWindow();
+        playAlarmSound();
 
         JOptionPane.showMessageDialog(null, Locale.FOCUS_DONE_MESSAGE_ALERT);
     }
@@ -140,7 +144,9 @@ public class App {
         setEnableButtonStop(false);
         setTimerStopped(false);
         setLabelTimer("00:00");
+
         flashWindow();
+        playAlarmSound();
 
         JOptionPane.showMessageDialog(null, Locale.BREAK_DONE_MESSAGE_ALERT);
     }
@@ -150,6 +156,21 @@ public class App {
         frame.toFront();
         frame.requestFocus();
         frame.setAlwaysOnTop(false);
+    }
+
+    private void playAlarmSound() {
+        URL url = this.getClass().getClassLoader().getResource("alarm.wav");
+        try {
+            assert url != null;
+            AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
+            Clip clip = AudioSystem.getClip();
+
+            clip.open(audioIn);
+            clip.start();
+        }
+        catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 
     public App() {
