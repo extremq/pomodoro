@@ -3,15 +3,11 @@ package com.codebind;
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import javax.sound.sampled.*;
-import java.net.URL;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class App {
+    private JMenuBar menubar;
     private JPanel panelMain;
     private JButton buttonStart;
     private JButton buttonStop;
@@ -19,7 +15,7 @@ public class App {
     private JLabel labelTimer;
     private JPanel panelButtons;
     private long focusMinutes;
-    private static final JFrame frame = new JFrame("App");
+    private JFrame frame;
 
     enum State {
         BOOTED,
@@ -76,18 +72,37 @@ public class App {
     }
     // END SETTERS AND GETTERS
 
-    // Transform the remaining time to a human-readable format.
-    public String convertMillisToMinutes(long millis, long periodOfTime) {
-        long selectedLength = periodOfTime * 60 * 1000;
-        long remainingTime = selectedLength - millis;
-        long millisToSeconds = (remainingTime / 1000) % 60;
-        long millisToMinutes = remainingTime / (1000 * 60);
+    // Creates a dialogue that asks the user for the focus period.
+    private void requestFocusTime() {
+        String m = JOptionPane.showInputDialog(Locale.TIME_QUESTION_MESSAGE);
 
-        if (remainingTime <= 0) {
-            return "00:00";
+        int convertedMinutes;
+        try {
+            convertedMinutes = Integer.parseInt(m);
+        } catch (Exception exception) {
+            convertedMinutes = 25;
         }
 
-        return String.format("%02d", millisToMinutes) + ":" + String.format("%02d", millisToSeconds);
+        if (convertedMinutes < 1 || convertedMinutes > 60) {
+            convertedMinutes = 25;
+        }
+        setFocusMinutes(convertedMinutes);
+    }
+
+    // Edits the message and the timer labels.
+    private void resetTimerAndMessage(String message) {
+        setLabelMsg(message);
+        setEnableButtonStart(true);
+        setEnableButtonStop(false);
+        setTimerStopped(false);
+        setLabelTimer("00:00");
+    }
+
+    public void finishSessionAndDisplayMessage(String message, JFrame frame) {
+        flashWindow(frame);
+        Utils.playAlarmSound();
+
+        JOptionPane.showMessageDialog(null, message);
     }
 
     private void startFocusPeriod() {
@@ -97,36 +112,12 @@ public class App {
         setTimerStopped(false);
     }
 
-    // Creates a dialogue that asks the user for the focus period.
-    private void requestFocusTime() {
-        String m = JOptionPane.showInputDialog(Locale.TIME_QUESTION_MESSAGE);
-
-        int convertedMinutes;
-        try {
-            convertedMinutes = Integer.parseInt(m);
-        } catch (Exception exception) {
-            convertedMinutes = 30;
-        }
-
-        if (convertedMinutes < 1 || convertedMinutes > 60) {
-            convertedMinutes = 30;
-        }
-        setFocusMinutes(convertedMinutes);
-    }
-
     private void endFocusPeriod() {
+        // Ended the focus, we need to take a break now.
         setState(State.BREAK);
 
-        setLabelMsg(Locale.FOCUS_DONE_MESSAGE);
-        setEnableButtonStart(true);
-        setEnableButtonStop(false);
-        setTimerStopped(false);
-        setLabelTimer("00:00");
-
-        flashWindow();
-        playAlarmSound();
-
-        JOptionPane.showMessageDialog(null, Locale.FOCUS_DONE_MESSAGE_ALERT);
+        resetTimerAndMessage(Locale.FOCUS_DONE_MESSAGE);
+        finishSessionAndDisplayMessage(Locale.FOCUS_DONE_MESSAGE_ALERT, frame);
     }
 
     private void startBreakPeriod() {
@@ -137,106 +128,133 @@ public class App {
     }
 
     private void endBreakPeriod() {
+        // Ended the break, we need to now.
         setState(State.FOCUS);
 
-        setLabelMsg(Locale.BREAK_DONE_MESSAGE);
-        setEnableButtonStart(true);
-        setEnableButtonStop(false);
-        setTimerStopped(false);
-        setLabelTimer("00:00");
-
-        flashWindow();
-        playAlarmSound();
-
-        JOptionPane.showMessageDialog(null, Locale.BREAK_DONE_MESSAGE_ALERT);
+        resetTimerAndMessage(Locale.BREAK_DONE_MESSAGE);
+        finishSessionAndDisplayMessage(Locale.BREAK_DONE_MESSAGE_ALERT, frame);
     }
 
-    private static void flashWindow() {
+    public static void flashWindow(JFrame frame) {
         frame.setAlwaysOnTop(true);
         frame.toFront();
         frame.requestFocus();
         frame.setAlwaysOnTop(false);
     }
 
-    private void playAlarmSound() {
-        URL url = this.getClass().getClassLoader().getResource("alarm.wav");
-        try {
-            assert url != null;
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
-            Clip clip = AudioSystem.getClip();
+    private void startTimerTask() {
+        long startTime = System.currentTimeMillis();
+        Timer timer = new Timer();
 
-            clip.open(audioIn);
-            clip.start();
+        // Pick whether we choose to subtract from session or break time.
+        long sessionMinutes = 0;
+        if (getState() == State.BOOTED || getState() == State.FOCUS) {
+            sessionMinutes = getFocusMinutes();
         }
-        catch (Exception e) {
-            System.out.println(e.getMessage());
+        else if (getState() == State.BREAK) {
+            sessionMinutes = getBreakMinutes();
         }
-    }
 
-    public App() {
-        // Start button logic
-        buttonStart.addActionListener(new ActionListener() {
+        long finalSessionMinutes = sessionMinutes;
+        timer.scheduleAtFixedRate(new TimerTask() {
             @Override
-            public void actionPerformed(ActionEvent e) {
-                if (getState() == State.FOCUS || getState() == State.BOOTED) {
-                    // Only request the focus time the first time.
-                    if (getState() == State.BOOTED)
-                        requestFocusTime();
-                    startFocusPeriod();
+            public void run() {
+                long systemTime = System.currentTimeMillis();
 
-                    long startTime = System.currentTimeMillis();
-                    Timer timer = new Timer();
-                    timer.scheduleAtFixedRate(new TimerTask() {
-                        @Override
-                        public void run() {
-                            long systemTime = System.currentTimeMillis();
-                            if (systemTime - startTime > getFocusMinutes() * 60 * 1000 || isTimerStopped()) {
-                                this.cancel();
-                                endFocusPeriod();
-                            } else {
-                                setLabelTimer(convertMillisToMinutes(systemTime - startTime, getFocusMinutes()));
-                            }
-                        }
-                    }, 0, 100);
+                // If the timer is below zero, or it has been stopped, cancel the updates.
+                if (systemTime - startTime > finalSessionMinutes * 60 * 1000 || isTimerStopped()) {
+                    this.cancel();
+                    if (getState() == State.BOOTED || getState() == State.FOCUS) {
+                        endFocusPeriod();
+                    }
+                    else if (getState() == State.BREAK) {
+                        endBreakPeriod();
+                    }
                 }
-                else if (getState() == State.BREAK) {
-                    startBreakPeriod();
-
-                    long startTime = System.currentTimeMillis();
-                    Timer timer = new Timer();
-                    timer.scheduleAtFixedRate(new TimerTask() {
-                        @Override
-                        public void run() {
-                            long systemTime = System.currentTimeMillis();
-                            if (systemTime - startTime > getBreakMinutes() * 60 * 1000 || isTimerStopped()) {
-                                this.cancel();
-                                endBreakPeriod();
-                            } else {
-                                setLabelTimer(convertMillisToMinutes(systemTime - startTime, getBreakMinutes()));
-                            }
-                        }
-                    }, 0, 100);
+                // Update the timer with the new remaining time.
+                else {
+                    setLabelTimer(Utils.convertRemainingMillisToMinutes(systemTime - startTime, getFocusMinutes()));
                 }
             }
-        });
-        buttonStop.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                setTimerStopped(true);
-            }
-        });
+        }, 0, 100);
     }
 
-    public static void main(String[] args) {
-        // Init settings
+    private void initFrame(JFrame frame) {
         frame.toFront();
-        frame.setContentPane(new App().panelMain);
+        frame.setContentPane(this.panelMain);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
         frame.setVisible(true);
         frame.setResizable(false);
         frame.setTitle("Pomodoro app");
         frame.setLocationRelativeTo(null);
-        frame.setSize(350, 225);
+        frame.setSize(350, 250);
+    }
+
+    private void initMenuBar(JMenuBar menubar, JFrame frame) {
+        JMenuItem aboutItem = new JMenuItem("About");
+        JMenuItem usageItem = new JMenuItem("Usage");
+        JMenu helpMenu = new JMenu("Help");
+
+        aboutItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JOptionPane.showMessageDialog(null, Locale.ABOUT_MESSAGE);
+            }
+        });
+
+        usageItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JOptionPane.showMessageDialog(null, Locale.USAGE_MESSAGE);
+            }
+        });
+
+        helpMenu.add(aboutItem);
+        helpMenu.add(usageItem);
+        menubar.add(helpMenu);
+        frame.setJMenuBar(menubar);
+    }
+
+    public App() {
+        this.frame = new JFrame();
+        initFrame(this.frame);
+
+        this.menubar = new JMenuBar();
+        initMenuBar(this.menubar, this.frame);
+
+        // Start button logic
+        buttonStart.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Utils.playClickSound();
+
+                if (getState() == State.FOCUS || getState() == State.BOOTED) {
+                    // Only request the focus time the first time.
+                    if (getState() == State.BOOTED)
+                        requestFocusTime();
+                    startFocusPeriod();
+
+                    startTimerTask();
+                }
+                else if (getState() == State.BREAK) {
+                    startBreakPeriod();
+
+                    startTimerTask();
+                }
+            }
+        });
+        buttonStop.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Utils.playClickSound();
+
+                setTimerStopped(true);
+            }
+        });
+    }
+
+    public static void main(String[] args) {
+        new App();
     }
 }
