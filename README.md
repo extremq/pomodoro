@@ -1,5 +1,5 @@
 # Pomodoro app
-![Screenshot](https://i.imgur.com/6rlNWCd.png)
+![Screenshot](https://i.imgur.com/R5ciGsm.gif)
 
 This is a Pomodoro-type app made in Java using Swift UI.
 
